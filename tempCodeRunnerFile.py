@@ -1,1 +1,1 @@
-Send
+admin_dashboard

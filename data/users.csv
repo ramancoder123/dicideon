@@ -1,1 +1,3 @@
-request_timestamp	status	email	user_id	first_name	middle_name	last_name	country_code	contact_number	date_of_borth	gender	organization_name	country	state	city	user_password
+email,username,password
+dicideonaccessmanage@gmail.com,Dicideon@182,$2b$12$txHdvAoQ0DQ5h3iR73ftt.0gojENpPh6KrMa.cYzVledoWIKIwLHK
+ramandeepsingh45972@gmail.com,raman_2006,$2b$12$DKcQ6BWc5rFVXBogFEFfOOT/UbsVgcHS8jFLBUkZdfjZeClfz6bD6

@@ -1,0 +1,110 @@
+/* --- Global Styles --- */
+body {
+    background-color: #0e1117;
+    color: white;
+    overflow-y: auto; /* Scroll support for mobile keyboards */
+}
+
+html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+
+/* --- Main Layout Container --- */
+.block-container {
+    padding: 20px !important; /* Padding for small screens */
+    max-width: 100% !important;
+    width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Keep horizontal centering */
+    justify-content: flex-start; /* Align content to the top */
+    padding-top: 3rem !important; /* Add space at the top for a navbar feel */
+}
+
+/* --- Form Wrapper/Card --- */
+/* Targets the main vertical block on the auth page */
+[data-testid="stAppViewContainer"] > .main .block-container > [data-testid="stVerticalBlock"] {
+    width: 90%; /* Mobile first */
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px; /* Vertical spacing */
+}
+
+/* --- Logo --- */
+[data-testid="stImage"] img {
+    width: 80px; /* Mobile width */
+    height: auto;
+}
+
+/* --- Headings --- */
+h2 {
+    font-size: 1.5rem; /* Mobile font size */
+    text-align: center;
+    margin: 0;
+}
+h5 {
+    font-size: 0.9rem; /* Mobile font size */
+    text-align: center;
+    color: #bbb;
+    font-style: italic;
+    margin: 0;
+    margin-top: -10px; /* Pull subtitle closer to title */
+}
+
+/* --- Form Element Styling --- */
+.stTextInput input, .stDateInput input, .stSelectbox > div > div {
+    height: 45px;
+    padding: 0 12px;
+    border-radius: 10px;
+    background-color: #2a2c32;
+    border: 1px solid #4a4c52;
+    color: white;
+}
+.stButton > button {
+    width: 100%;
+    height: 45px;
+    padding: 12px;
+    border-radius: 10px;
+    background-color: #6C63FF;
+    color: white;
+    border: none;
+}
+
+/* --- Tab Styling --- */
+.stTabs { width: 100%; }
+.stTabs [data-baseweb="tab-list"] {
+    gap: 20px; /* Keep the gap between tabs */
+    justify-content: flex-start; /* Left-align the tabs */
+}
+.stTabs [data-baseweb="tab"] {
+    font-size: 0.9rem;
+    padding: 10px 0;
+}
+.stTabs [aria-selected="true"] {
+    border-bottom: 2px solid #6C63FF;
+}
+
+/* --- Desktop Styles --- */
+@media (min-width: 600px) {
+    [data-testid="stImage"] img {
+        width: 120px; /* Desktop width */
+    }
+    h2 {
+        font-size: 2.2rem; /* Desktop font size */
+    }
+    h5 {
+        font-size: 1.1rem; /* Desktop font size */
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 30px;
+    }
+}

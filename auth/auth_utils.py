@@ -21,9 +21,19 @@ def register_user(email: str, username: str, password: str):
     if email in users['email'].values:
         raise ValueError("Email already exists")
     
-    new_user = pd.DataFrame([[email, username, hash_password(password)]],
-                          columns=['email', 'username', 'password'])
-    users = pd.concat([users, new_user])
+    new_user = pd.DataFrame([[email, username, hash_password(password)]], columns=['email', 'username', 'password'])
+    users = pd.concat([users, new_user], ignore_index=True)
+    users.to_csv(USERS_FILE, index=False)
+
+def add_approved_user(email: str, username: str, hashed_password: str):
+    """Adds a new user with a pre-hashed password to the database."""
+    users = load_users()
+    if email in users['email'].values:
+        # This check is a safeguard. The main uniqueness check should prevent this.
+        raise ValueError(f"User with email {email} already exists.")
+    
+    new_user = pd.DataFrame([[email, username, hashed_password]], columns=['email', 'username', 'password'])
+    users = pd.concat([users, new_user], ignore_index=True)
     users.to_csv(USERS_FILE, index=False)
 
 def load_users():

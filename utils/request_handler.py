@@ -14,6 +14,7 @@ _current_dir = os.path.dirname(os.path.abspath(__file__))
 _data_dir = os.path.join(os.path.dirname(_current_dir), "data")
 PENDING_REQUESTS_FILE = os.path.join(_data_dir, "pending_requests.csv")
 PENDING_REQUESTS_VALIDATION_FILE = os.path.join(_data_dir, "pending_requests_validation.csv")
+USER_DATA_FILE = os.path.join(_data_dir, "user_data.csv")
 
 ADMIN_EMAIL = "dicideonaccessmanage@gmail.com"
 
@@ -25,14 +26,28 @@ _REQUEST_COLUMNS = [
     'user_password', 'otp', 'otp_expires_at'
 ]
 
-def _create_csv_if_not_exists(file_path: str):
-    """Ensures a CSV file exists with the standard request headers."""
+# Define columns for the final, approved user data file.
+_USER_DATA_COLUMNS = [
+    'email', 'user_id', 'first_name', 'middle_name', 'last_name', 
+    'country_code', 'contact_number', 'date_of_birth', 'gender', 
+    'organization_name', 'country', 'state', 'city', 'approval_timestamp'
+]
+
+def _create_csv_if_not_exists(file_path: str, columns: list):
+    """Ensures a CSV file exists with the specified headers."""
     if not os.path.exists(file_path):
-        df = pd.DataFrame(columns=_REQUEST_COLUMNS)
+        df = pd.DataFrame(columns=columns)
         df.to_csv(file_path, index=False)
 
 def _format_email_body(data):
     """Formats the sign-up data into a clean HTML email."""
+    # Conditionally construct the full name to handle blank middle names gracefully.
+    middle_name = data.get('middle_name')
+    # pd.isna() is a robust way to check for pandas' NaN, which can occur with empty CSV fields.
+    if middle_name and not pd.isna(middle_name):
+        full_name = f"{data.get('first_name', '')} {middle_name} {data.get('last_name', '')}".strip()
+    else:
+        full_name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip()
     html = f"""
     <html>
     <head>
@@ -49,12 +64,12 @@ def _format_email_body(data):
             <h2>New Dicideon Access Request</h2>
             <p>A new user has requested access. Please review their details below and update their status in the user management system.</p>
             <hr>
-            <p><strong>Email:</strong> {data['email']}</p>
-            <p><strong>Full Name:</strong> {data['first_name']} {data['middle_name']} {data['last_name']}</p>
-            <p><strong>User ID:</strong> {data['user_id']}</p>
-            <p><strong>Organization:</strong> {data['organization_name']}</p>
-            <p><strong>Contact:</strong> {data['country_code']} {data['contact_number']}</p>
-            <p><strong>Location:</strong> {data['city']}, {data['state']}, {data['country']}</p>
+            <p><strong>Email:</strong> {data.get('email', 'N/A')}</p>
+            <p><strong>Full Name:</strong> {full_name}</p>
+            <p><strong>User ID:</strong> {data.get('user_id', 'N/A')}</p>
+            <p><strong>Organization:</strong> {data.get('organization_name', 'N/A')}</p>
+            <p><strong>Contact:</strong> {data.get('country_code', '')} {data.get('contact_number', '')}</p>
+            <p><strong>Location:</strong> {data.get('city', 'N/A')}, {data.get('state', 'N/A')}, {data.get('country', 'N/A')}</p>
         </div>
     </body>
     </html>
@@ -113,6 +128,54 @@ def _format_security_alert_email_body(attempted_field: str):
     """
     return html
 
+def _format_approval_email_body(first_name: str):
+    """Formats the account approval email."""
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; }}
+            .container {{ padding: 20px; border: 1px solid #ddd; border-radius: 5px; max-width: 600px; }}
+            h2 {{ color: #2ecc71; }}
+            p {{ line-height: 1.6; }}
+            .button {{ background-color: #6C63FF; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Welcome to Dicideon, {first_name}!</h2>
+            <p>Your access request has been approved. You can now log in to your account using the credentials you provided during sign-up.</p>
+            <br>
+            <a href="http://localhost:8501" class="button" style="color: white;">Login Now</a>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
+def _format_rejection_email_body(first_name: str):
+    """Formats the account rejection email."""
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; }}
+            .container {{ padding: 20px; border: 1px solid #ddd; border-radius: 5px; max-width: 600px; }}
+            h2 {{ color: #e74c3c; }}
+            p {{ line-height: 1.6; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Update on Your Dicideon Access Request</h2>
+            <p>Hello {first_name},</p>
+            <p>Thank you for your interest in Dicideon. After careful review, we are unable to approve your access request at this time. We appreciate your understanding.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
 def send_password_reset_email(email: str, token: str):
     """Sends an email with a password reset link."""
     # In a real app, this base URL should come from a config file or environment variable.
@@ -125,6 +188,16 @@ def send_security_alert_email(recipient_email: str, attempted_field: str):
     """Sends a security alert notification to the original user."""
     subject = "Security Alert: Sign-Up Attempt on Your Dicideon Account"
     _send_email(recipient_email, subject, _format_security_alert_email_body(attempted_field))
+
+def send_approval_email(recipient_email: str, first_name: str):
+    """Sends an account approval notification to the user."""
+    subject = "Your Dicideon Account Has Been Approved!"
+    _send_email(recipient_email, subject, _format_approval_email_body(first_name))
+
+def send_rejection_email(recipient_email: str, first_name: str):
+    """Sends an account rejection notification to the user."""
+    subject = "An Update on Your Dicideon Access Request"
+    _send_email(recipient_email, subject, _format_rejection_email_body(first_name))
 
 def _format_otp_email_body(otp):
     """Formats the OTP into a clean HTML email."""
@@ -160,7 +233,7 @@ def initiate_signup_and_send_otp(form_data):
     Saves the initial request with an OTP, sets status to 'awaiting_otp',
     and sends the OTP email. Returns the expiration datetime on success.
     """
-    _create_csv_if_not_exists(PENDING_REQUESTS_FILE)
+    _create_csv_if_not_exists(PENDING_REQUESTS_FILE, _REQUEST_COLUMNS)
     
     # 1. Generate OTP and expiration
     otp = str(random.randint(100000, 999999))
@@ -242,7 +315,7 @@ def verify_otp_and_finalize_request(email: str, otp: str) -> bool:
     record['otp_expires_at'] = '' # Clear sensitive data.
 
     # 3. Add the verified record to the final validation file.
-    _create_csv_if_not_exists(PENDING_REQUESTS_VALIDATION_FILE)
+    _create_csv_if_not_exists(PENDING_REQUESTS_VALIDATION_FILE, _REQUEST_COLUMNS)
     validation_df = pd.read_csv(PENDING_REQUESTS_VALIDATION_FILE)
     updated_validation_df = pd.concat([validation_df, record.to_frame().T], ignore_index=True)
     updated_validation_df.to_csv(PENDING_REQUESTS_VALIDATION_FILE, index=False)
@@ -271,12 +344,9 @@ def _send_email(recipient_email, subject, html_body):
 
     try:
         with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            # Temporarily enable for detailed debugging output in the console
-            server.set_debuglevel(1)
             server.starttls()
             server.login(sender_email, sender_password)
             server.send_message(msg)
-            server.set_debuglevel(0) # Turn off debug mode after sending
     except Exception as e:
         # This could be a network error, authentication error, etc.
         print(f"Email Error: {e}")
