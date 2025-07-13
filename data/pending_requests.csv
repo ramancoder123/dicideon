@@ -1,1 +1,1 @@
-request_timestamp,status,email,user_id,first_name,middle_name,last_name,country_code,contact_number,date_of_birth,gender,organization_name,country,state,city,user_password,date_of_birth,otp,otp_expires_at
+request_timestamp,status,email,user_id,first_name,middle_name,last_name,country_code,contact_number,date_of_birth,gender,organization_name,country,state,city,user_password,otp,otp_expires_at
