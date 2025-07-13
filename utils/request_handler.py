@@ -252,6 +252,9 @@ def initiate_signup_and_send_otp(form_data):
     df = df[df['email'] != request_data['email']]
     new_request_df = pd.DataFrame([request_data])
     updated_df = pd.concat([df, new_request_df], ignore_index=True)
+    
+    # Enforce a clean schema to prevent saving junk columns like 'dob' or 'date_of_borth'
+    updated_df = updated_df.reindex(columns=_REQUEST_COLUMNS)
     updated_df.to_csv(PENDING_REQUESTS_FILE, index=False)
 
     # 4. Send OTP email to the user
