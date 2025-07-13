@@ -8,14 +8,20 @@ import streamlit.components.v1 as components
 import os
 from dotenv import load_dotenv
 
+# --- PATHS ---
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+logo_path = os.path.join(_current_dir, "data", "logo.png")
+css_path = os.path.join(_current_dir, "styles.css")
+
 # --- PAGE CONFIG ---
-st.set_page_config(page_title="Dicideon", layout="wide")
+logo_image = Image.open(logo_path)
+st.set_page_config(page_title="Dicideon", page_icon=logo_image, layout="wide")
 
 # --- LOAD ENVIRONMENT VARIABLES ---
 load_dotenv() # This will load the .env file
 
 # --- LOAD DATA AND HANDLE ERRORS ---
-# This must be called after set_page_config() to displaby errors correctly.
+# This must be called after set_page_config() to display errors correctly.
 location_error = location_handler.load_location_data()
 if location_error:
     st.error(location_error)
@@ -39,10 +45,6 @@ def load_css(file_name):
     with open(file_name) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-# --- LOGO PATH ---
-_current_dir = os.path.dirname(os.path.abspath(__file__))
-logo_path = os.path.join(_current_dir, "data", "logo.png")
-css_path = os.path.join(_current_dir, "styles.css")
 load_css(css_path)
 
 def render_password_reset_page(token: str):
