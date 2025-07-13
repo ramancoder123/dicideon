@@ -318,6 +318,8 @@ def verify_otp_and_finalize_request(email: str, otp: str) -> bool:
     _create_csv_if_not_exists(PENDING_REQUESTS_VALIDATION_FILE, _REQUEST_COLUMNS)
     validation_df = pd.read_csv(PENDING_REQUESTS_VALIDATION_FILE)
     updated_validation_df = pd.concat([validation_df, record.to_frame().T], ignore_index=True)
+    # Reindex to ensure only the correct columns are saved, in the correct order.
+    updated_validation_df = updated_validation_df.reindex(columns=_REQUEST_COLUMNS)
     updated_validation_df.to_csv(PENDING_REQUESTS_VALIDATION_FILE, index=False)
 
     # 4. Notify the admin about the newly verified request.
