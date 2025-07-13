@@ -3,7 +3,7 @@ from admin import actions
 
 # Define the columns to display and their desired order for a clean, consistent UI.
 _DISPLAY_COLUMNS = [
-    'request_timestamp', 'email', 'user_id', 'first_name', 'middle_name',
+    'request_timestamp', 'status', 'email', 'user_id', 'first_name', 'middle_name',
     'last_name', 'gender', 'date_of_birth', 'organization_name', 'country',
     'state', 'city', 'country_code', 'contact_number'
 ]
