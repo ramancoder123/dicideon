@@ -20,26 +20,6 @@ st.set_page_config(page_title="Dicideon", page_icon=logo_image, layout="wide")
 # --- LOAD ENVIRONMENT VARIABLES ---
 load_dotenv() # This will load the .env file
 
-# --- LOAD DATA AND HANDLE ERRORS ---
-# This must be called after set_page_config() to display errors correctly.
-location_error = location_handler.load_location_data()
-if location_error:
-    st.error(location_error)
-    st.stop() # Stop the app if location data can't be loaded
-
-# --- SESSION STATE INITIALIZATION ---
-session_manager.init_session()
-if 'otp_sent_for_email' not in st.session_state:
-    st.session_state.otp_sent_for_email = None
-if 'signup_data' not in st.session_state:
-    st.session_state.signup_data = {}
-if 'otp_expires_at' not in st.session_state:
-    st.session_state.otp_expires_at = None
-if 'signup_complete' not in st.session_state:
-    st.session_state.signup_complete = False
-if 'approval_eta' not in st.session_state:
-    st.session_state.approval_eta = None
-
 def load_css(file_name):
     """Loads an external CSS file."""
     with open(file_name) as f:
@@ -325,25 +305,51 @@ def render_authentication_page():
         else:
             _render_signup_form()
 
-# --- MAIN APP ROUTING ---
-if st.session_state.authenticated:
-    # Place logout button in a consistent sidebar location
-    st.sidebar.success(f"Logged in as {st.session_state.user}")
-    if st.sidebar.button("Logout"):
-        st.session_state.authenticated = False
-        st.session_state.user = None
-        st.rerun()
+def main():
+    """Main function to set up and run the Streamlit application."""
+    # --- LOAD DATA AND HANDLE ERRORS ---
+    location_error = location_handler.load_location_data()
+    if location_error:
+        st.error(location_error)
+        st.stop() # Stop the app if location data can't be loaded
 
-    # Route to the appropriate view based on user role
-    if st.session_state.user == request_handler.ADMIN_EMAIL:
-        admin_dashboard.render_dashboard()
+    # --- SESSION STATE INITIALIZATION ---
+    session_manager.init_session()
+    if 'otp_sent_for_email' not in st.session_state:
+        st.session_state.otp_sent_for_email = None
+    if 'signup_data' not in st.session_state:
+        st.session_state.signup_data = {}
+    if 'otp_expires_at' not in st.session_state:
+        st.session_state.otp_expires_at = None
+    if 'signup_complete' not in st.session_state:
+        st.session_state.signup_complete = False
+    if 'approval_eta' not in st.session_state:
+        st.session_state.approval_eta = None
+
+    load_css(css_path)
+
+    # --- MAIN APP ROUTING ---
+    if st.session_state.authenticated:
+        # Place logout button in a consistent sidebar location
+        st.sidebar.success(f"Logged in as {st.session_state.user}")
+        if st.sidebar.button("Logout"):
+            st.session_state.authenticated = False
+            st.session_state.user = None
+            st.rerun()
+
+        # Route to the appropriate view based on user role
+        if st.session_state.user == request_handler.ADMIN_EMAIL:
+            admin_dashboard.render_dashboard()
+        else:
+            st.title("Welcome to Dicideon")
+            st.write("This is the main application page for regular users.")
     else:
-        st.title("Welcome to Dicideon")
-        st.write("This is the main application page for regular users.")
-else:
-    # Check for a password reset token in the URL query parameters to decide which page to render.
-    query_params = st.query_params.to_dict()
-    if 'token' in query_params:
-        render_password_reset_page(query_params['token'])
-    else:
-        render_authentication_page()
+        # Check for a password reset token in the URL query parameters to decide which page to render.
+        query_params = st.query_params.to_dict()
+        if 'token' in query_params:
+            render_password_reset_page(query_params['token'])
+        else:
+            render_authentication_page()
+
+if __name__ == "__main__":
+    main()

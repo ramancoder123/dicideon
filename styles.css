@@ -41,7 +41,7 @@ html, body, #root {
 
 /* --- Logo --- */
 [data-testid="stImage"] img {
-    width: 80px; /* Mobile width */
+    width: 60px; /* Mobile width */
     height: auto;
 }
 
@@ -96,7 +96,7 @@ h5 {
 /* --- Desktop Styles --- */
 @media (min-width: 600px) {
     [data-testid="stImage"] img {
-        width: 120px; /* Desktop width */
+        width: 90px; /* Desktop width */
     }
     h2 {
         font-size: 2.2rem; /* Desktop font size */
