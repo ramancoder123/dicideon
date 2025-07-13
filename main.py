@@ -323,6 +323,23 @@ def render_authentication_page():
         else:
             _render_signup_form()
 
+def _initialize_session_state():
+    """Initializes all required keys in Streamlit's session state for a clean startup."""
+    session_manager.init_session() # This handles 'authenticated' and 'user'
+    
+    # Define keys and their default values to ensure they exist
+    default_session_keys = {
+        "otp_sent_for_email": None,
+        "signup_data": {},
+        "otp_expires_at": None,
+        "signup_complete": False,
+        "approval_eta": None
+    }
+    
+    for key, value in default_session_keys.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
 def main():
     """Main function to set up and run the Streamlit application."""
     # --- LOAD DATA AND HANDLE ERRORS ---
@@ -331,19 +348,7 @@ def main():
         st.error(location_error)
         st.stop() # Stop the app if location data can't be loaded
 
-    # --- SESSION STATE INITIALIZATION ---
-    session_manager.init_session()
-    if 'otp_sent_for_email' not in st.session_state:
-        st.session_state.otp_sent_for_email = None
-    if 'signup_data' not in st.session_state:
-        st.session_state.signup_data = {}
-    if 'otp_expires_at' not in st.session_state:
-        st.session_state.otp_expires_at = None
-    if 'signup_complete' not in st.session_state:
-        st.session_state.signup_complete = False
-    if 'approval_eta' not in st.session_state:
-        st.session_state.approval_eta = None
-
+    _initialize_session_state()
     load_css(css_path)
 
     # --- MAIN APP ROUTING ---
