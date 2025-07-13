@@ -8,13 +8,13 @@ from utils.hashing import hash_password
 # --- Robust Path Definition ---
 _current_dir = os.path.dirname(os.path.abspath(__file__))
 _data_dir = os.path.join(os.path.dirname(_current_dir), "data")
-PASSWORD_RESETS_FILE = os.path.join(_data_dir, "password_resets.xlsx")
+PASSWORD_RESETS_FILE = os.path.join(_data_dir, "password_resets.csv")
 
 def _create_resets_file_if_not_exists():
-    """Ensures the password resets Excel file exists with the correct headers."""
+    """Ensures the password resets CSV file exists with the correct headers."""
     if not os.path.exists(PASSWORD_RESETS_FILE):
         df = pd.DataFrame(columns=['email', 'token', 'expires_at', 'used'])
-        df.to_excel(PASSWORD_RESETS_FILE, index=False)
+        df.to_csv(PASSWORD_RESETS_FILE, index=False)
 
 def generate_reset_token(email: str) -> str | None:
     """
@@ -29,7 +29,7 @@ def generate_reset_token(email: str) -> str | None:
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now() + timedelta(hours=1)
 
-    df = pd.read_excel(PASSWORD_RESETS_FILE)
+    df = pd.read_csv(PASSWORD_RESETS_FILE)
     new_reset_df = pd.DataFrame([{
         'email': email,
         'token': token,
@@ -37,7 +37,7 @@ def generate_reset_token(email: str) -> str | None:
         'used': False
     }])
     updated_df = pd.concat([df, new_reset_df], ignore_index=True)
-    updated_df.to_excel(PASSWORD_RESETS_FILE, index=False)
+    updated_df.to_csv(PASSWORD_RESETS_FILE, index=False)
     return token
 
 def verify_reset_token(token: str) -> str | None:
@@ -48,7 +48,7 @@ def verify_reset_token(token: str) -> str | None:
     if not os.path.exists(PASSWORD_RESETS_FILE):
         return None
 
-    df = pd.read_excel(PASSWORD_RESETS_FILE)
+    df = pd.read_csv(PASSWORD_RESETS_FILE)
     df['token'] = df['token'].astype(str) # Ensure token is read as string
     record = df[(df['token'] == token) & (df['used'] == False)]
 
@@ -74,14 +74,14 @@ def reset_password(token: str, new_password: str) -> bool:
     if not user_index:
         return False
     users_df.loc[user_index[0], 'password'] = hash_password(new_password)
-    users_df.to_excel(auth_utils.USERS_FILE, index=False)
+    users_df.to_csv(auth_utils.USERS_FILE, index=False)
 
     # Invalidate the token
-    resets_df = pd.read_excel(PASSWORD_RESETS_FILE)
+    resets_df = pd.read_csv(PASSWORD_RESETS_FILE)
     resets_df['token'] = resets_df['token'].astype(str)
     token_index = resets_df.index[resets_df['token'] == token].tolist()
     if token_index:
         resets_df.loc[token_index[0], 'used'] = True
-        resets_df.to_excel(PASSWORD_RESETS_FILE, index=False)
+        resets_df.to_csv(PASSWORD_RESETS_FILE, index=False)
 
     return True

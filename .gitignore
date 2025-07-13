@@ -22,3 +22,7 @@ wheels/
 
 # Environment variables
 .env
+
+# VS Code
+.vscode/
+tempCodeRunnerFile.py

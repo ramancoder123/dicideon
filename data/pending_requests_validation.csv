@@ -1,0 +1,3 @@
+request_timestamp,status,email,user_id,first_name,middle_name,last_name,country_code,contact_number,date_of_birth,gender,organization_name,country,state,city,user_password,otp,otp_expires_at,date_of_borth,dob
+2025-07-13 08:55:02,pending,ramandeepsingh45972@gmail.com,23BCS10876,Ramandeep,,Singh,91,7814290893,2006-03-02,Male,Chandigarh University,India,Punjab,Barnala,$2b$12$pCFMDvw9wcWPFrsfKDjN7OfG5kD441QtMXdNeluJcUs2HUS3fPJ8e,,,,
+2025-07-13 09:26:39,pending,ramangamingmlbb@gmail.com,93167850284,Jaskaran,deep,Kaur,91,7814290893,2004-12-07,Male,Chandigarh University,India,Punjab,Barnala,$2b$12$Y6ZJbNxcYmExOp45sQcVX.xPsK41/s/TKHBmLqPcs90T/Rr1S9Tiu,,,,

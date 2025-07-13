@@ -27,8 +27,8 @@ def load_location_data():
 
     try:
         # 1. Load countries for dropdown and phone codes
-        country_cols = ['name', 'phonecode']
-        countries_df = pd.read_csv(COUNTRIES_FILE, usecols=country_cols, dtype={'phonecode': str})
+        country_cols = ['name', 'phonecode', 'iso2']
+        countries_df = pd.read_csv(COUNTRIES_FILE, usecols=country_cols, dtype={'phonecode': str, 'iso2': str})
         countries_df.dropna(subset=['name'], inplace=True)
         countries_df['name'] = countries_df['name'].str.strip()
 
@@ -49,6 +49,7 @@ def load_location_data():
         _location_cache['states_list'] = sorted(states_df['name'].unique().tolist())
         _location_cache['cities_list'] = sorted(cities_df['name'].unique().tolist())
         _location_cache['phone_codes_dict'] = countries_df.set_index('name')['phonecode'].to_dict()
+        _location_cache['iso2_dict'] = countries_df.set_index('name')['iso2'].to_dict()
 
         return None  # Success
 
@@ -56,7 +57,7 @@ def load_location_data():
         abs_path = os.path.abspath(e.filename)
         return f"Fatal Error: Location data file not found. The application is looking for '{os.path.basename(e.filename)}' at this exact location: {abs_path}. Please ensure the file exists and the name is correct."
     except KeyError as e:
-        return f"Fatal Error: A required column {e} was not found. Please check your CSV files. `countries.csv` needs 'name', 'phonecode'. `states.csv` needs 'name'. `cities.csv` needs 'name'."
+        return f"Fatal Error: A required column {e} was not found. Please check your CSV files. `countries.csv` needs 'name', 'phonecode', and 'iso2'. `states.csv` needs 'name'. `cities.csv` needs 'name'."
     except Exception as e:
         return f"An unexpected error occurred while loading location data: {e}"
 
@@ -74,6 +75,12 @@ def get_country_code(country_name):
             return f"+{code_str}"
         return ""
     return ""
+
+def get_country_iso2(country_name: str) -> str | None:
+    """Returns the ISO2 code for a given country name."""
+    if country_name and country_name != "Select...":
+        return _location_cache.get('iso2_dict', {}).get(country_name)
+    return None
 
 def get_states(country_name):
     """Returns a sorted list of all state names, unlinked from the country."""

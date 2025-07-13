@@ -1,0 +1,3 @@
+request_timestamp,status,email,user_id,first_name,middle_name,last_name,country_code,contact_number,date_of_borth,gender,organization_name,country,state,city,user_password,date_of_birth,otp,otp_expires_at,dob
+2025-07-13 09:07:32,awaiting_otp,js838665@gmail.com,8470129491,oiuheiurhiewuh,,huofhfuow,91,7814290893,,Female,Chandigarh University,India,Punjab,Barnala,$2b$12$7wLLElgBjqEokeMuS7zT3uo95Fw.fAGonN6cGPhRLRelwxbYo/2Ta,2025-07-13,713648,2025-07-13 09:17:32,
+2025-07-13 09:17:28,awaiting_otp,ramandeepsingh45972@ieee.org,93167850284,Ramandeep,,Singh,91,7814290893,,Male,Chandigarh University,India,Punjab,Barnala,$2b$12$c2IV93ZztwxloWCoHEgboeZJFpgT4hF1LLR7AlUUuzLyOwKuy/9sG,2006-03-02,635114,2025-07-13 09:28:01,
