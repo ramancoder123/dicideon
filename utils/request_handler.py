@@ -178,8 +178,8 @@ def _format_rejection_email_body(first_name: str):
 
 def send_password_reset_email(email: str, token: str):
     """Sends an email with a password reset link."""
-    # In a real app, this base URL should come from a config file or environment variable.
-    base_url = "http://localhost:8501"
+    # The base URL must be configured for the deployment environment.
+    base_url = os.environ.get("BASE_URL", "http://localhost:8501")
     reset_link = f"{base_url}?token={token}"
 
     _send_email(email, "Dicideon Password Reset", _format_reset_email_body(reset_link))
