@@ -1,0 +1,24 @@
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; }
+        .container { padding: 20px; border: 1px solid #ddd; border-radius: 5px; max-width: 600px; }
+        h2 { color: #333; }
+        p { line-height: 1.6; }
+        strong { color: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>New Dicideon Access Request</h2>
+        <p>A new user has requested access. Please review their details below and update their status in the user management system.</p>
+        <hr>
+        <p><strong>Email:</strong> {{email}}</p>
+        <p><strong>Full Name:</strong> {{full_name}}</p>
+        <p><strong>User ID:</strong> {{user_id}}</p>
+        <p><strong>Organization:</strong> {{organization_name}}</p>
+        <p><strong>Contact:</strong> {{country_code}} {{contact_number}}</p>
+        <p><strong>Location:</strong> {{city}}, {{state}}, {{country}}</p>
+    </div>
+</body>
+</html>
