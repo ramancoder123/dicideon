@@ -30,7 +30,8 @@ def render_dashboard():
             with st.expander("View Full Details"):
                 # Explicitly select and display columns for robustness and a clean presentation.
                 details_to_show = request.reindex(_DISPLAY_COLUMNS).dropna().rename(lambda x: x.replace('_', ' ').title())
-                st.table(details_to_show)
+                # Use st.dataframe for a better UI, as it's scrollable and more modern than st.table.
+                st.dataframe(details_to_show)
 
             col1, col2, _ = st.columns([1, 1, 5]) # Layout for buttons
 
