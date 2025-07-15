@@ -18,21 +18,24 @@ def _save_validation_requests(df):
     """Saves the updated dataframe to the validation file."""
     df.to_csv(request_handler.PENDING_REQUESTS_VALIDATION_FILE, index=False)
 
-def approve_request(request_email: str):
-    """Approves a user request, moving them to the main users file and saving their full profile."""
+def _get_request_by_email(request_email: str) -> tuple[pd.DataFrame, pd.Series | None]:
+    """Helper to fetch a request and its data by email from the validation file."""
     validation_df = get_pending_requests()
     request_data = validation_df[validation_df['email'] == request_email]
-
     if request_data.empty:
-        return False, "Request not found."
+        return validation_df, None
+    return validation_df, request_data.iloc[0].copy()
 
-    user_info = request_data.iloc[0].copy()
+def approve_request(request_email: str):
+    """Approves a user request, moving them to the main users file and saving their full profile."""
+    validation_df, user_info = _get_request_by_email(request_email)
+    if user_info is None:
+        return False, "Request not found."
     
     try:
         # 1. Add the user with their pre-hashed password to the main users file for authentication
         auth_utils.add_approved_user(
-            email=user_info['email'],
-            username=user_info['user_id'],
+            email=user_info['email'], username=user_info['user_id'],
             hashed_password=user_info['user_password']
         )
     except ValueError as e:
@@ -67,12 +70,9 @@ def _save_full_user_profile(user_info: pd.Series):
 
 def reject_request(request_email: str):
     """Rejects a user request, removing them from the pending file."""
-    validation_df = get_pending_requests()
-    request_data = validation_df[validation_df['email'] == request_email]
-
-    if request_data.empty:
+    validation_df, user_info = _get_request_by_email(request_email)
+    if user_info is None:
         return False, "Request not found."
-    user_info = request_data.iloc[0].copy()
 
     # Remove from pending validation and send rejection email
     validation_df = validation_df[validation_df['email'] != request_email]
@@ -80,3 +80,23 @@ def reject_request(request_email: str):
     request_handler.send_rejection_email(user_info['email'], user_info['first_name'])
     
     return True, f"User {user_info['email']} rejected and notified."
+
+def handle_corrupted_request(request_email: str):
+    """
+    Deletes a corrupted request from the validation file and notifies the user.
+    A "corrupted" request here is one that the dashboard identified as having an invalid format.
+    """
+    validation_df, request_data_series = _get_request_by_email(request_email)
+    if request_data_series is None:
+        return False, f"Corrupted request for {request_email} not found in validation file (might have been processed already)."
+    
+    # Get user's first name for the email before dropping the data
+    first_name = request_data_series.get('first_name', 'there') # Fallback name
+
+    # Remove ALL entries for this email to clean up potential duplicates
+    validation_df = validation_df[validation_df['email'] != request_email]
+    _save_validation_requests(validation_df)
+    
+    # Notify the user to sign up again
+    request_handler.send_corruption_notification_email(request_email, first_name)
+    return True, f"Removed corrupted request for {request_email} and notified the user."

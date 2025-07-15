@@ -6,7 +6,58 @@ from admin import dashboard as admin_dashboard
 import datetime
 import streamlit.components.v1 as components
 import os
-from dotenv import load_dotenv
+import sys
+import logging
+from dotenv import 
+        cities = location_handler.get_cities(None)
+
+        col1, col2 = st.columns(2, gap="medium")
+        with col1:
+            country_index = (["Select..."] + countries).index(st.session_state.signup_data.get("country", "Select...")) if st.session_state.signup_data.get("country") in countries else 0
+            selected_country_name = st.selectbox("Country*", options=["Select..."] + countries, index=country_index)
+        with col2:
+            state_index = (["Select..."] + states).index(st.session_state.signup_data.get("state", "Select...")) if st.session_state.signup_data.get("state") in states else 0
+            selected_state_name = st.selectbox("State*", options=["Select..."] + states, index=state_index)
+
+        city_index = (["Select..."] + cities).index(st.session_state.signup_data.get("city", "Select...")) if st.session_state.signup_data.get("city") in cities else 0
+        selected_city_name = st.selectbox("City*", options=["Select..."] + cities, index=city_index)
+
+        col1, col2 = st.columns([1, 2], gap="medium")
+        with col1:
+            country_code_val = location_handler.get_country_code(selected_country_name)
+            country_code = st.text_input("Phone Code*", value=st.session_state.signup_data.get("country_code", country_code_val))
+        with col2:
+            contact_number = st.text_input("Contact Number*", value=st.session_state.signup_data.get("contact_number", ""))
+
+        st.markdown("---")
+        st.markdown("**Organization & Credentials**")
+        col1, col2 = st.columns(2, gap="medium")
+        with col1:
+            org_name = st.text_input("Organization Name*", value=st.session_state.signup_data.get("organization_name", ""))
+            password = st.text_input("Password*", type="password")
+        with col2:
+            user_id = st.text_input("User ID (Organization ID)*", value=st.session_state.signup_data.get("user_id", ""))
+            confirm_password = st.text_input("Confirm Password*", type="password")
+
+        submitted = st.form_submit_button("Send OTP", type="primary")
+        if submitted:
+            # Collect all form data into a dictionary to pass to the handler
+            form_data = {
+                "first_name": first_name, "middle_name": middle_name, "last_name": last_name, "email": email, 
+                "dob": dob, "gender": gender, "country": selected_country_name, 
+                "state": selected_state_name, "city": selected_city_name,
+                "country_code": country_code, "contact_number": contact_number,
+                "organization_name": org_name, "user_id": user_id,
+                "password": password, "confirm_password": confirm_password
+            }
+            _handle_signup_submission(form_data)
+
+def _render_login_form():
+    """Renders the user login form."""
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+load_dotenv
 
 # --- PATHS ---
 _current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -26,6 +77,16 @@ def load_css(file_name):
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 load_css(css_path)
+
+def setup_logging():
+    """Sets up basic logging for the application to output to the console."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+    # Quieten down the noisy email_validator library to avoid cluttering logs
+    logging.getLogger("email_validator").setLevel(logging.WARNING)
 
 def render_password_reset_page(token: str):
     """Displays the UI for resetting a password when a token is present."""
@@ -221,49 +282,32 @@ def _render_signup_form():
         st.markdown("---")
         st.markdown("**Location & Contact**")
         countries = location_handler.get_countries()
-        states = location_handler.get_states(None)
-        cities = location_handler.get_cities(None)
-
-        col1, col2 = st.columns(2, gap="medium")
-        with col1:
-            country_index = (["Select..."] + countries).index(st.session_state.signup_data.get("country", "Select...")) if st.session_state.signup_data.get("country") in countries else 0
-            selected_country_name = st.selectbox("Country*", options=["Select..."] + countries, index=country_index)
-        with col2:
-            state_index = (["Select..."] + states).index(st.session_state.signup_data.get("state", "Select...")) if st.session_state.signup_data.get("state") in states else 0
-            selected_state_name = st.selectbox("State*", options=["Select..."] + states, index=state_index)
-
-        city_index = (["Select..."] + cities).index(st.session_state.signup_data.get("city", "Select...")) if st.session_state.signup_data.get("city") in cities else 0
-        selected_city_name = st.selectbox("City*", options=["Select..."] + cities, index=city_index)
-
-        col1, col2 = st.columns([1, 2], gap="medium")
-        with col1:
-            country_code_val = location_handler.get_country_code(selected_country_name)
-            country_code = st.text_input("Phone Code*", value=st.session_state.signup_data.get("country_code", country_code_val))
-        with col2:
-            contact_number = st.text_input("Contact Number*", value=st.session_state.signup_data.get("contact_number", ""))
-
-        st.markdown("---")
-        st.markdown("**Organization & Credentials**")
-        col1, col2 = st.columns(2, gap="medium")
-        with col1:
-            org_name = st.text_input("Organization Name*", value=st.session_state.signup_data.get("organization_name", ""))
-            password = st.text_input("Password*", type="password")
-        with col2:
-            user_id = st.text_input("User ID (Organization ID)*", value=st.session_state.signup_data.get("user_id", ""))
-            confirm_password = st.text_input("Confirm Password*", type="password")
-
-        submitted = st.form_submit_button("Send OTP", type="primary")
+        states = location_handler.get_states(None)        submitted = st.form_submit_button("Login", type="primary")
         if submitted:
-            # Collect all form data into a dictionary to pass to the handler
-            form_data = {
-                "first_name": first_name, "middle_name": middle_name, "last_name": last_name, "email": email, 
-                "dob": dob, "gender": gender, "country": selected_country_name, 
-                "state": selected_state_name, "city": selected_city_name,
-                "country_code": country_code, "contact_number": contact_number,
-                "organization_name": org_name, "user_id": user_id,
-                "password": password, "confirm_password": confirm_password
-            }
-            _handle_signup_submission(form_data)
+            if auth_utils.authenticate_user(email, password):
+                st.session_state.authenticated = True
+                st.session_state.user = email
+                st.rerun()
+            else:
+                st.error("Invalid email or password.")
+
+def _render_forgot_password_form():
+    """Renders the form for initiating a password reset."""
+    with st.form("forgot_password_form"):
+        st.markdown("###### Forgot Your Password?")
+        forgot_email = st.text_input("Enter your email to get a reset link", key="forgot_email_input")
+        submitted_forgot = st.form_submit_button("Send Reset Link")
+        if submitted_forgot:
+            token = password_reset_utils.generate_reset_token(forgot_email)
+            if token:
+                try:
+                    request_handler.send_password_reset_email(forgot_email, token)
+                except (exceptions.EmailConfigurationError, exceptions.EmailSendingError):
+                    # Don't show a specific error here to prevent email enumeration,
+                    # but the error will be logged to the console for the admin.
+                    pass
+            # Show same message for security to prevent user enumeration
+            st.success("If an account with that email exists, a password reset link has been sent.")
 
 def render_authentication_page():
     """Displays the main authentication page with Sign In and Sign Up tabs."""
@@ -275,35 +319,8 @@ def render_authentication_page():
     tab1, tab2 = st.tabs(["🔐 Sign In", "🆕 Sign Up"])
 
     with tab1:
-        # Reconstructed the login form correctly inside the "Sign In" tab.
-        with st.form("login_form", clear_on_submit=False):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Login", type="primary")
-            if submitted:
-                if auth_utils.authenticate_user(email, password):
-                    st.session_state.authenticated = True
-                    st.session_state.user = email
-                    st.rerun()
-                else:
-                    st.error("Invalid email or password.")
-        
-        # --- Forgot Password Form (Moved outside the login form) ---
-        with st.form("forgot_password_form"):
-            st.markdown("###### Forgot Your Password?")
-            forgot_email = st.text_input("Enter your email to get a reset link", key="forgot_email_input")
-            submitted_forgot = st.form_submit_button("Send Reset Link")
-            if submitted_forgot:
-                token = password_reset_utils.generate_reset_token(forgot_email)
-                if token:
-                    try:
-                        request_handler.send_password_reset_email(forgot_email, token)
-                    except (exceptions.EmailConfigurationError, exceptions.EmailSendingError):
-                        # Don't show a specific error here to prevent email enumeration,
-                        # but the error will be logged to the console for the admin.
-                        pass
-                # Show same message for security to prevent user enumeration
-                st.success("If an account with that email exists, a password reset link has been sent.")
+        _render_login_form()
+        _render_forgot_password_form()
 
     with tab2:
         # 1. If sign-up is fully complete, show the final confirmation message.
@@ -342,6 +359,7 @@ def _initialize_session_state():
 
 def main():
     """Main function to set up and run the Streamlit application."""
+    setup_logging()
     # --- LOAD DATA AND HANDLE ERRORS ---
     location_error = location_handler.load_location_data()
     if location_error:

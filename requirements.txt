@@ -1,6 +1,9 @@
 streamlit
 pandas
-bcrypt
+Pillow
 python-dotenv
 email-validator
 phonenumbers
+bcrypt
+pytest
+flake8

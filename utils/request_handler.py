@@ -3,11 +3,15 @@ import os
 from datetime import datetime, timedelta
 import random
 import streamlit as st
+import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from utils.hashing import hash_password
 from utils.exceptions import EmailConfigurationError, EmailSendingError
+
+# --- Logger Setup ---
+logger = logging.getLogger(__name__)
 
 # --- Robust Path Definition ---
 _current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -50,7 +54,7 @@ def _load_and_format_template(template_name: str, context: dict) -> str:
             template_str = template_str.replace(f"{{{{{key}}}}}", str(value))
         return template_str
     except FileNotFoundError:
-        print(f"Error: Email template not found at {template_path}")
+        logger.error(f"Email template not found at {template_path}")
         return f"<p>Error: Could not load email template '{template_name}'. Please contact support.</p>"
 
 def _get_email_html(template_file: str, data: dict) -> str:
@@ -104,6 +108,12 @@ def send_rejection_email(recipient_email: str, first_name: str):
     """Sends an account rejection notification to the user."""
     subject = "An Update on Your Dicideon Access Request"
     html_body = _get_email_html("rejection.html", {"first_name": first_name})
+    _send_email(recipient_email, subject, html_body)
+
+def send_corruption_notification_email(recipient_email: str, first_name: str):
+    """Sends an email notifying the user of a corrupted request."""
+    subject = "Action Required: Your Dicideon Sign-Up Request"
+    html_body = _get_email_html("corrupted_request.html", {"first_name": first_name})
     _send_email(recipient_email, subject, html_body)
 
 def send_otp_email(email: str, otp: str):
@@ -223,6 +233,7 @@ def _send_email(recipient_email, subject, html_body):
 
     if not sender_email or not sender_password:
         # This is a server configuration issue, not a user error.
+        logger.critical("Email service is not configured. SENDER_EMAIL or SENDER_PASSWORD secrets are missing.")
         raise EmailConfigurationError("Email service is not configured on the server.")
 
     msg = MIMEMultipart()
@@ -236,7 +247,9 @@ def _send_email(recipient_email, subject, html_body):
             server.starttls()
             server.login(sender_email, sender_password)
             server.send_message(msg)
+        logger.info(f"Successfully sent email to {recipient_email} with subject: '{subject}'")
     except Exception as e:
-        # This could be a network error, authentication error, etc.
-        print(f"Email Error: {e}")
-        raise EmailSendingError(f"An error occurred while trying to send the email.")
+        # Include the original exception message for better debugging.
+        error_message = f"Failed to send email to {recipient_email} with subject '{subject}'. Error: {e}"
+        logger.error(error_message)
+        raise EmailSendingError(error_message)
