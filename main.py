@@ -8,56 +8,7 @@ import streamlit.components.v1 as components
 import os
 import sys
 import logging
-from dotenv import 
-        cities = location_handler.get_cities(None)
-
-        col1, col2 = st.columns(2, gap="medium")
-        with col1:
-            country_index = (["Select..."] + countries).index(st.session_state.signup_data.get("country", "Select...")) if st.session_state.signup_data.get("country") in countries else 0
-            selected_country_name = st.selectbox("Country*", options=["Select..."] + countries, index=country_index)
-        with col2:
-            state_index = (["Select..."] + states).index(st.session_state.signup_data.get("state", "Select...")) if st.session_state.signup_data.get("state") in states else 0
-            selected_state_name = st.selectbox("State*", options=["Select..."] + states, index=state_index)
-
-        city_index = (["Select..."] + cities).index(st.session_state.signup_data.get("city", "Select...")) if st.session_state.signup_data.get("city") in cities else 0
-        selected_city_name = st.selectbox("City*", options=["Select..."] + cities, index=city_index)
-
-        col1, col2 = st.columns([1, 2], gap="medium")
-        with col1:
-            country_code_val = location_handler.get_country_code(selected_country_name)
-            country_code = st.text_input("Phone Code*", value=st.session_state.signup_data.get("country_code", country_code_val))
-        with col2:
-            contact_number = st.text_input("Contact Number*", value=st.session_state.signup_data.get("contact_number", ""))
-
-        st.markdown("---")
-        st.markdown("**Organization & Credentials**")
-        col1, col2 = st.columns(2, gap="medium")
-        with col1:
-            org_name = st.text_input("Organization Name*", value=st.session_state.signup_data.get("organization_name", ""))
-            password = st.text_input("Password*", type="password")
-        with col2:
-            user_id = st.text_input("User ID (Organization ID)*", value=st.session_state.signup_data.get("user_id", ""))
-            confirm_password = st.text_input("Confirm Password*", type="password")
-
-        submitted = st.form_submit_button("Send OTP", type="primary")
-        if submitted:
-            # Collect all form data into a dictionary to pass to the handler
-            form_data = {
-                "first_name": first_name, "middle_name": middle_name, "last_name": last_name, "email": email, 
-                "dob": dob, "gender": gender, "country": selected_country_name, 
-                "state": selected_state_name, "city": selected_city_name,
-                "country_code": country_code, "contact_number": contact_number,
-                "organization_name": org_name, "user_id": user_id,
-                "password": password, "confirm_password": confirm_password
-            }
-            _handle_signup_submission(form_data)
-
-def _render_login_form():
-    """Renders the user login form."""
-    with st.form("login_form", clear_on_submit=False):
-        email = st.text_input("Email")
-        password = st.text_input("Password", type="password")
-load_dotenv
+from dotenv import load_dotenv
 
 # --- PATHS ---
 _current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -282,7 +233,56 @@ def _render_signup_form():
         st.markdown("---")
         st.markdown("**Location & Contact**")
         countries = location_handler.get_countries()
-        states = location_handler.get_states(None)        submitted = st.form_submit_button("Login", type="primary")
+        states = location_handler.get_states(None)
+        cities = location_handler.get_cities(None)
+
+        col1, col2 = st.columns(2, gap="medium")
+        with col1:
+            country_index = (["Select..."] + countries).index(st.session_state.signup_data.get("country", "Select...")) if st.session_state.signup_data.get("country") in countries else 0
+            selected_country_name = st.selectbox("Country*", options=["Select..."] + countries, index=country_index)
+        with col2:
+            state_index = (["Select..."] + states).index(st.session_state.signup_data.get("state", "Select...")) if st.session_state.signup_data.get("state") in states else 0
+            selected_state_name = st.selectbox("State*", options=["Select..."] + states, index=state_index)
+
+        city_index = (["Select..."] + cities).index(st.session_state.signup_data.get("city", "Select...")) if st.session_state.signup_data.get("city") in cities else 0
+        selected_city_name = st.selectbox("City*", options=["Select..."] + cities, index=city_index)
+
+        col1, col2 = st.columns([1, 2], gap="medium")
+        with col1:
+            country_code_val = location_handler.get_country_code(selected_country_name)
+            country_code = st.text_input("Phone Code*", value=st.session_state.signup_data.get("country_code", country_code_val))
+        with col2:
+            contact_number = st.text_input("Contact Number*", value=st.session_state.signup_data.get("contact_number", ""))
+
+        st.markdown("---")
+        st.markdown("**Organization & Credentials**")
+        col1, col2 = st.columns(2, gap="medium")
+        with col1:
+            org_name = st.text_input("Organization Name*", value=st.session_state.signup_data.get("organization_name", ""))
+            password = st.text_input("Password*", type="password")
+        with col2:
+            user_id = st.text_input("User ID (Organization ID)*", value=st.session_state.signup_data.get("user_id", ""))
+            confirm_password = st.text_input("Confirm Password*", type="password")
+
+        submitted = st.form_submit_button("Send OTP", type="primary")
+        if submitted:
+            # Collect all form data into a dictionary to pass to the handler
+            form_data = {
+                "first_name": first_name, "middle_name": middle_name, "last_name": last_name, "email": email, 
+                "dob": dob, "gender": gender, "country": selected_country_name, 
+                "state": selected_state_name, "city": selected_city_name,
+                "country_code": country_code, "contact_number": contact_number,
+                "organization_name": org_name, "user_id": user_id,
+                "password": password, "confirm_password": confirm_password
+            }
+            _handle_signup_submission(form_data)
+
+def _render_login_form():
+    """Renders the user login form."""
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login", type="primary")
         if submitted:
             if auth_utils.authenticate_user(email, password):
                 st.session_state.authenticated = True
