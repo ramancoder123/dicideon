@@ -1,12 +1,15 @@
-import pandas as pd
 import os
 from datetime import datetime, timedelta
 import random
-import streamlit as st
 import logging
+import pandas as pd
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import sys
+
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(_current_dir))
 from utils.hashing import hash_password
 from utils.exceptions import EmailConfigurationError, EmailSendingError
 
@@ -14,13 +17,9 @@ from utils.exceptions import EmailConfigurationError, EmailSendingError
 logger = logging.getLogger(__name__)
 
 # --- Robust Path Definition ---
-_current_dir = os.path.dirname(os.path.abspath(__file__))
-_data_dir = os.path.join(os.path.dirname(_current_dir), "data")
-PENDING_REQUESTS_FILE = os.path.join(_data_dir, "pending_requests.csv")
-TEMPLATES_DIR = os.path.join(_current_dir, "templates")
-PENDING_REQUESTS_VALIDATION_FILE = os.path.join(_data_dir, "pending_requests_validation.csv")
-USER_DATA_FILE = os.path.join(_data_dir, "user_data.csv")
+TEMPLATES_DIR = os.path.join(_current_dir, "templates") 
 
+import database
 ADMIN_EMAIL = "dicideonaccessmanage@gmail.com"
 
 # Define columns as a constant to ensure consistency and reduce duplication.
@@ -31,18 +30,6 @@ _REQUEST_COLUMNS = [
     'user_password', 'otp', 'otp_expires_at'
 ]
 
-# Define columns for the final, approved user data file.
-_USER_DATA_COLUMNS = [
-    'email', 'user_id', 'first_name', 'middle_name', 'last_name', 
-    'country_code', 'contact_number', 'date_of_birth', 'gender', 
-    'organization_name', 'country', 'state', 'city', 'approval_timestamp'
-]
-
-def _create_csv_if_not_exists(file_path: str, columns: list):
-    """Ensures a CSV file exists with the specified headers."""
-    if not os.path.exists(file_path):
-        df = pd.DataFrame(columns=columns)
-        df.to_csv(file_path, index=False)
 
 def _load_and_format_template(template_name: str, context: dict) -> str:
     """Loads an HTML template and replaces placeholders with context data."""
@@ -126,8 +113,6 @@ def initiate_signup_and_send_otp(form_data):
     Saves the initial request with an OTP, sets status to 'awaiting_otp',
     and sends the OTP email. Returns the expiration datetime on success.
     """
-    _create_csv_if_not_exists(PENDING_REQUESTS_FILE, _REQUEST_COLUMNS)
-    
     # 1. Generate OTP and expiration
     otp = str(random.randint(100000, 999999))
     otp_expires_at = datetime.now() + timedelta(minutes=10)
@@ -135,93 +120,72 @@ def initiate_signup_and_send_otp(form_data):
     # 2. Prepare data for saving
     request_data = form_data.copy()
     request_data['request_timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    request_data['status'] = 'awaiting_otp'
+    request_data['status'] = 'pending_otp'
     request_data['user_password'] = hash_password(request_data.pop('password'))
     request_data['otp'] = otp
     request_data['otp_expires_at'] = otp_expires_at.strftime("%Y-%m-%d %H:%M:%S")
 
-    # 3. Save to CSV, overwriting any previous attempt from the same email
-    df = pd.read_csv(PENDING_REQUESTS_FILE)
-    df = df[df['email'] != request_data['email']]
-    new_request_df = pd.DataFrame([request_data])
-    updated_df = pd.concat([df, new_request_df], ignore_index=True)
-    
-    # Enforce a clean schema to prevent saving junk columns like 'dob' or 'date_of_borth'
-    updated_df = updated_df.reindex(columns=_REQUEST_COLUMNS)
-    updated_df.to_csv(PENDING_REQUESTS_FILE, index=False)
-
-    # 4. Send OTP email to the user
-    send_otp_email(request_data['email'], otp)
-    return otp_expires_at
+    try:
+        # Use the correct database function to create a pending request
+        database.create_pending_request(request_data)
+        send_otp_email(request_data['email'], otp)
+        return otp_expires_at
+    except Exception as e:
+        logging.error(f"Error during signup initiation: {e}")
+        raise  # Re-raise to handle it in main.py, e.g., show an error to the user
 
 def regenerate_and_resend_otp(email: str) -> datetime | None:
     """
     Finds an existing request, generates a new OTP, updates the record,
     and resends the email. Returns the new expiration time on success.
     """
-    if not os.path.exists(PENDING_REQUESTS_FILE): return None
-    
-    df = pd.read_csv(PENDING_REQUESTS_FILE)
-    request_row_series = df[(df['email'] == email) & (df['status'] == 'awaiting_otp')]
-    
-    if request_row_series.empty: return None
-    
-    request_index = request_row_series.index[0]
-    
-    # Generate new OTP and expiration
-    new_otp = str(random.randint(100000, 999999))
-    new_expires_at = datetime.now() + timedelta(minutes=10)
-    
-    # Update the DataFrame
-    df.loc[request_index, 'otp'] = new_otp
-    df.loc[request_index, 'otp_expires_at'] = new_expires_at.strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Save the updated DataFrame and resend the email
-    df.to_csv(PENDING_REQUESTS_FILE, index=False)
-    send_otp_email(email, new_otp)
-    return new_expires_at
+    # Removed: if not os.path.exists(PENDING_REQUESTS_FILE): return None
+
+    try:
+        request_data = database.get_request_by_email(email)
+        if not request_data or request_data['status'] != 'pending_otp': return None
+
+        # Generate new OTP and expiration
+        new_otp = str(random.randint(100000, 999999))
+        new_expires_at = datetime.now() + timedelta(minutes=10)
+
+        # Update the database
+        database.update_request_otp(email, new_otp, new_expires_at)
+
+        send_otp_email(email, new_otp)
+        return new_expires_at
+    except Exception as e:
+        logging.error(f"Error regenerating/resending OTP: {e}")
+        return None
 
 def verify_otp_and_finalize_request(email: str, otp: str) -> bool:
     """
-    Verifies the OTP. If correct, moves the request from the pending file
-    to the validation file and notifies the admin.
+    Verifies the OTP. If correct, updates the request status to 'pending_approval'
+    and notifies the admin.
     """
-    if not os.path.exists(PENDING_REQUESTS_FILE): return False
+    try:
+        request_data = database.get_request_by_email(email)
 
-    df = pd.read_csv(PENDING_REQUESTS_FILE)
-    request_row = df[(df['email'] == email) & (df['status'] == 'awaiting_otp')]
+        if not request_data or request_data['status'] != 'pending_otp': return False
 
-    if request_row.empty: return False
+        expires_at = datetime.strptime(request_data['otp_expires_at'], "%Y-%m-%d %H:%M:%S")
+        if str(request_data['otp']) != otp or datetime.now() > expires_at:
+            return False
 
-    record = request_row.iloc[0].copy() # Use .copy() to avoid SettingWithCopyWarning
-    expires_at = datetime.strptime(record['otp_expires_at'], "%Y-%m-%d %H:%M:%S")
-    
-    if str(record['otp']) != otp or datetime.now() > expires_at:
+        # OTP is valid; update status and notify admin
+        database.update_request_status(email, 'pending_approval')
+
+        # Prepare data for admin notification with sanitized data.
+        admin_data = {k: request_data.get(k, 'N/A') for k in [
+            'email', 'first_name', 'last_name', 'user_id', 'organization_name'
+        ]}
+        html_body = _get_email_html("admin_notification.html", admin_data)
+        _send_email(ADMIN_EMAIL, f"New Dicideon Access Request from {email}", html_body)
+
+        return True
+    except Exception as e:
+        logging.error(f"Error verifying OTP: {e}")
         return False
-
-    # OTP is valid, so move the record from the temp file to the final validation file.
-    # 1. Remove the record from the temporary pending file.
-    request_index = request_row.index[0]
-    df = df.drop(request_index)
-    df.to_csv(PENDING_REQUESTS_FILE, index=False)
-
-    # 2. Prepare the record for the final validation file.
-    record['status'] = 'pending'
-    record['otp'] = '' # Clear sensitive data.
-    record['otp_expires_at'] = '' # Clear sensitive data.
-
-    # 3. Add the verified record to the final validation file.
-    _create_csv_if_not_exists(PENDING_REQUESTS_VALIDATION_FILE, _REQUEST_COLUMNS)
-    validation_df = pd.read_csv(PENDING_REQUESTS_VALIDATION_FILE)
-    updated_validation_df = pd.concat([validation_df, record.to_frame().T], ignore_index=True)
-    # Reindex to ensure only the correct columns are saved, in the correct order.
-    updated_validation_df = updated_validation_df.reindex(columns=_REQUEST_COLUMNS)
-    updated_validation_df.to_csv(PENDING_REQUESTS_VALIDATION_FILE, index=False)
-
-    # 4. Notify the admin about the newly verified request.
-    html_body = _get_email_html("admin_notification.html", record.to_dict())
-    _send_email(ADMIN_EMAIL, f"New Dicideon Access Request from {email}", html_body)
-    return True
 
 def _send_email(recipient_email, subject, html_body):
     """

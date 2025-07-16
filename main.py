@@ -8,6 +8,13 @@ import streamlit.components.v1 as components
 import os
 import sys
 import logging
+
+# Add the project root to the Python path to allow importing 'database'
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(_current_dir)
+
+import database  # Import the new database module
+
 from dotenv import load_dotenv
 
 # --- PATHS ---
@@ -19,10 +26,26 @@ css_path = os.path.join(_current_dir, "styles.css")
 logo_image = Image.open(logo_path)
 st.set_page_config(page_title="Dicideon", page_icon=logo_image, layout="wide")
 
+# --- CSS OVERRIDE FOR WIDE LAYOUT ---
+# This CSS override ensures the app uses the full screen width, overriding any
+# conflicting styles that might be in the external CSS file.
+st.markdown("""
+<style>
+    /* Main app container */
+    [data-testid="stAppViewContainer"] {
+        max-width: none;
+    }
+    /* Header container */
+    [data-testid="stHeader"] {
+        max-width: none;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- LOAD ENVIRONMENT VARIABLES ---
 load_dotenv() # This will load the .env file
 
-def load_css(file_name):
+def load_css(file_name): # No change to the function itself, just its position and call frequency
     """Loads an external CSS file."""
     with open(file_name) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -127,16 +150,20 @@ def _render_otp_verification_form():
                     st.rerun()
                 else:
                     st.error("Could not find your sign-up request. Please go back and start over.")
-                    st.session_state.otp_sent_for_email = None
-                    st.session_state.otp_expires_at = None
-                    st.rerun()
+                    # Keep them on the OTP form but signal that OTP is invalid.
+                    # This avoids immediate return to the signup form.
+                    st.session_state.otp_invalid = True
+                    # We no longer clear the email, or the expiration since it might not be the cause
+                    st.rerun() 
             except exceptions.EmailConfigurationError:
                 st.error("Sorry, the email service is currently unavailable. Please try again later.")
             except exceptions.EmailSendingError:
                 st.error("Failed to send new OTP. Please check your email address and try again.")
 
         if submitted_otp:
-            if request_handler.verify_otp_and_finalize_request(st.session_state.otp_sent_for_email, otp_input):
+            # Strip whitespace from user input to prevent comparison errors
+            clean_otp = otp_input.strip()
+            if request_handler.verify_otp_and_finalize_request(st.session_state.otp_sent_for_email, clean_otp):
                 # Set the state for the new success message screen
                 st.session_state.signup_complete = True
                 st.session_state.approval_eta = datetime.datetime.now() + datetime.timedelta(hours=4)
@@ -145,7 +172,12 @@ def _render_otp_verification_form():
                 st.session_state.otp_expires_at = None
                 st.rerun()
             else:
-                st.error("The OTP you entered is incorrect. Please try again.")
+                # Do not change the session state values here.
+                # The new values from initial signup or resend still hold.
+                # Instead, just show a regular error with the already improved message.
+                # Clear the invalid status before showing a new error
+                st.session_state.otp_invalid = False
+                st.error("The OTP you entered is incorrect or has expired. Please try again.")
 
 def _handle_signup_submission(form_data: dict):
     """Validates and processes the signup form submission logic."""
@@ -358,7 +390,7 @@ def _initialize_session_state():
             st.session_state[key] = value
 
 def main():
-    """Main function to set up and run the Streamlit application."""
+    database.init_db()  # Create database and tables if they don't exist
     setup_logging()
     # --- LOAD DATA AND HANDLE ERRORS ---
     location_error = location_handler.load_location_data()
@@ -367,7 +399,6 @@ def main():
         st.stop() # Stop the app if location data can't be loaded
 
     _initialize_session_state()
-    load_css(css_path)
 
     # --- MAIN APP ROUTING ---
     if st.session_state.authenticated:

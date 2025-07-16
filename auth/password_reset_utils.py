@@ -1,66 +1,68 @@
-import pandas as pd
 import os
 import secrets
 from datetime import datetime, timedelta
-from auth import auth_utils
 from utils.hashing import hash_password
+import sys
+import logging
+from typing import Optional
 
-# --- Robust Path Definition ---
+# --- Add project root to the Python path ---
 _current_dir = os.path.dirname(os.path.abspath(__file__))
-_data_dir = os.path.join(os.path.dirname(_current_dir), "data")
-PASSWORD_RESETS_FILE = os.path.join(_data_dir, "password_resets.csv")
+sys.path.append(os.path.dirname(_current_dir))
+import database
 
-def _create_resets_file_if_not_exists():
-    """Ensures the password resets CSV file exists with the correct headers."""
-    if not os.path.exists(PASSWORD_RESETS_FILE):
-        df = pd.DataFrame(columns=['email', 'token', 'expires_at', 'used'])
-        df.to_csv(PASSWORD_RESETS_FILE, index=False)
-
-def generate_reset_token(email: str) -> str | None:
+def generate_reset_token(email: str) -> Optional[str]:
     """
     Generates a secure password reset token if the user exists.
-    Stores the token with an expiration date.
+    Invalidates any old tokens and stores the new one in the database.
     """
-    users = auth_utils.load_users()
-    if email not in users['email'].values:
-        return None  # User does not exist
+    user = database.find_user_by_email(email)
+    if not user:
+        return None
+    try:
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now() + timedelta(hours=1)
+        with database.get_db_connection() as conn:
+            cursor = conn.cursor()
+            # First, invalidate any old, unused tokens for this user
+            cursor.execute("UPDATE password_resets SET used = ? WHERE email = ? AND used = ?", (True, email, False))
+            cursor.execute(
+                """
+                INSERT INTO password_resets (email, token, expires_at, used)
+                VALUES (?, ?, ?, ?)
+                """,
+                (email, token, expires_at.strftime("%Y-%m-%d %H:%M:%S"), False)
+            )
+            conn.commit()
+        return token
+    except Exception as e:
+        logging.error(f"Failed to generate reset token: {e}")
+        return None
 
-    _create_resets_file_if_not_exists()
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.now() + timedelta(hours=1)
 
-    df = pd.read_csv(PASSWORD_RESETS_FILE)
-    new_reset_df = pd.DataFrame([{
-        'email': email,
-        'token': token,
-        'expires_at': expires_at,
-        'used': False
-    }])
-    updated_df = pd.concat([df, new_reset_df], ignore_index=True)
-    updated_df.to_csv(PASSWORD_RESETS_FILE, index=False)
-    return token
-
-def verify_reset_token(token: str) -> str | None:
+def verify_reset_token(token: str) -> Optional[str]:
     """
     Verifies a password reset token.
     Returns the user's email if the token is valid and not expired, otherwise None.
     """
-    if not os.path.exists(PASSWORD_RESETS_FILE):
+    try:
+        with database.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT email, expires_at, used FROM password_resets WHERE token = ?",
+                (token,)
+            )
+            result = cursor.fetchone()
+            if result:
+                email, expires_at_str, used = result
+                expires_at = datetime.strptime(expires_at_str, "%Y-%m-%d %H:%M:%S")
+                if not used and datetime.now() <= expires_at:
+                    return email
+        return None  # Token not found, expired, or already used
+    except Exception as e:
+        logging.error(f"Failed to verify reset token: {e}")
         return None
 
-    df = pd.read_csv(PASSWORD_RESETS_FILE)
-    df['token'] = df['token'].astype(str) # Ensure token is read as string
-    record = df[(df['token'] == token) & (df['used'] == False)]
-
-    if record.empty:
-        return None
-
-    # Ensure 'expires_at' is a datetime object for comparison
-    expires_at = pd.to_datetime(record.iloc[0]['expires_at'])
-    if datetime.now() > expires_at:
-        return None  # Token expired
-
-    return record.iloc[0]['email']
 
 def reset_password(token: str, new_password: str) -> bool:
     """Resets the user's password and invalidates the token."""
@@ -68,20 +70,14 @@ def reset_password(token: str, new_password: str) -> bool:
     if not email:
         return False
 
-    # Update user's password
-    users_df = auth_utils.load_users()
-    user_index = users_df.index[users_df['email'] == email].tolist()
-    if not user_index:
+    try:
+        hashed_password = hash_password(new_password)
+        with database.get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET password = ? WHERE email = ?", (hashed_password, email))
+            cursor.execute("UPDATE password_resets SET used = ? WHERE token = ?", (True, token))
+            conn.commit()
+        return True
+    except Exception as e:
+        logging.error(f"Failed to reset password: {e}")
         return False
-    users_df.loc[user_index[0], 'password'] = hash_password(new_password)
-    users_df.to_csv(auth_utils.USERS_FILE, index=False)
-
-    # Invalidate the token
-    resets_df = pd.read_csv(PASSWORD_RESETS_FILE)
-    resets_df['token'] = resets_df['token'].astype(str)
-    token_index = resets_df.index[resets_df['token'] == token].tolist()
-    if token_index:
-        resets_df.loc[token_index[0], 'used'] = True
-        resets_df.to_csv(PASSWORD_RESETS_FILE, index=False)
-
-    return True
