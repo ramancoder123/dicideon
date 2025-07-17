@@ -45,20 +45,19 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            # Add new columns if they don't exist
-            cursor.execute("""
-                ALTER TABLE users ADD COLUMN phone_code TEXT
-            """)
-            cursor.execute("""
-                ALTER TABLE users ADD COLUMN country TEXT
-            """)
-            cursor.execute("""
-                ALTER TABLE users ADD COLUMN state TEXT
-            """)
-            cursor.execute("""
-                ALTER TABLE users ADD COLUMN city TEXT
-            """)
 
+            # --- Check and add missing columns ---
+            cursor.execute("PRAGMA table_info(users)")
+            existing_columns = [col[1] for col in cursor.fetchall()]  # Extract column names
+            columns_to_add = {
+                "phone_code": "TEXT",
+                "country": "TEXT",
+                "state": "TEXT",
+                "city": "TEXT",
+            }
+            for col_name, col_type in columns_to_add.items():
+                if col_name not in existing_columns:
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
             # --- Requests Table ---
             # Stores pending sign-up requests for admin approval
             cursor.execute("""
@@ -73,7 +72,6 @@ def init_db():
                     last_name TEXT NOT NULL,
                     country_code TEXT NOT NULL,
                     contact_number TEXT NOT NULL UNIQUE,
-                    date_of_birth DATE NOT NULL,
                     gender TEXT NOT NULL,
                     organization_name TEXT NOT NULL,
                     country TEXT NOT NULL,
