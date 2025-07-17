@@ -113,7 +113,7 @@ def find_user_by_email(email: str) -> Optional[Dict[str, Any]]:
         user = cursor.fetchone()
         return dict(user) if user else None
 
-def add_user(email: str, username: str, hashed_password: str) -> None:
+def add_user(email: str, username: str, hashed_password: str, phone_code: str, contact_number: str, country: str, state: str, city: str, organization_name: str, gender: str) -> None:
     """Adds a new, approved user to the 'users' table."""
     with get_db_connection() as conn:
         cursor = conn.cursor()

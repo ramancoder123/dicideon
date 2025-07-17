@@ -59,21 +59,17 @@ def check_uniqueness(email: str, user_id: str, contact_number: str) -> tuple[lis
         # --- Email Uniqueness ---
         cursor.execute("SELECT email FROM users WHERE email = ?", (email,))
         if cursor.fetchone():
-            errors.append("This email address is already registered.") # Email check now only considers existing users
+            errors.append("This email address is already registered.")
 
         # --- User ID Uniqueness ---
         cursor.execute("SELECT username FROM users WHERE username = ?", (user_id,))
         if cursor.fetchone():
             errors.append("This User ID is already registered.")
-        else:
-            cursor.execute("SELECT user_id FROM requests WHERE user_id = ?", (user_id,))
-            if cursor.fetchone():  # Corrected indentation
-                errors.append("This User ID is already pending approval.") # Moved append inside the if block
 
-    with database.get_db_connection() as conn:
-      cursor = conn.cursor()
-      cursor.execute("SELECT email FROM user WHERE contact_number = ?", (contact_number,))
-      if cursor.fetchone():
-          errors.append("This contact number is already pending approval.")
+        # --- Contact Number Uniqueness ---
+        # Note: contact numbers should also be checked in the users table.
+        cursor.execute("SELECT contact_number FROM users WHERE contact_number = ?", (contact_number,))
+        if cursor.fetchone():
+            errors.append("This contact number is already registered.")
 
     return list(set(errors)), notifications

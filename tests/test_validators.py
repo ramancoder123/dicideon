@@ -4,7 +4,6 @@ import pandas as pd
 from utils import validator
 
 class TestValidators(unittest.TestCase):
-
     def test_validate_email(self):
         """Test email validation with valid and invalid formats."""
         self.assertTrue(validator.validate_email("test@example.com"))
