@@ -1,70 +1,25 @@
 import streamlit as st
-from PIL import Image
 from auth import auth_utils, session_manager, password_reset_utils
 from utils import validator, request_handler, location_handler, exceptions
 from admin import dashboard as admin_dashboard
 import datetime
 import streamlit.components.v1 as components
-import os
-import sys
 import logging
+import os
 
-# Add the project root to the Python path to allow importing 'database'
-_current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(_current_dir)
+# --- App Setup ---
+# This single import and function call handles all initial configurations:
+# path setup, page config, CSS, environment variables, and logging.
+from app_setup import initialize_app, LOGO_PATH
+initialize_app()
 
+# The initialize_app function handles path setup, so we can import database after.
 import database  # Import the new database module
-
-from dotenv import load_dotenv
-
-# --- PATHS ---
-_current_dir = os.path.dirname(os.path.abspath(__file__))
-logo_path = os.path.join(_current_dir, "data", "logo.png")
-css_path = os.path.join(_current_dir, "styles.css")
-
-# --- PAGE CONFIG ---
-logo_image = Image.open(logo_path)
-st.set_page_config(page_title="Dicideon", page_icon=logo_image, layout="wide")
-
-# --- CSS OVERRIDE FOR WIDE LAYOUT ---
-# This CSS override ensures the app uses the full screen width, overriding any
-# conflicting styles that might be in the external CSS file.
-st.markdown("""
-<style>
-    /* Main app container */
-    [data-testid="stAppViewContainer"] {
-        max-width: none;
-    }
-    /* Header container */
-    [data-testid="stHeader"] {
-        max-width: none;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- LOAD ENVIRONMENT VARIABLES ---
-load_dotenv() # This will load the .env file
-
-def load_css(file_name): # No change to the function itself, just its position and call frequency
-    """Loads an external CSS file."""
-    with open(file_name) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-load_css(css_path)
-
-def setup_logging():
-    """Sets up basic logging for the application to output to the console."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        stream=sys.stdout,
-    )
-    # Quieten down the noisy email_validator library to avoid cluttering logs
-    logging.getLogger("email_validator").setLevel(logging.WARNING)
 
 def render_password_reset_page(token: str):
     """Displays the UI for resetting a password when a token is present."""
-    st.image(logo_path)
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH)
     try:
         email = password_reset_utils.verify_reset_token(token)
         if email:
@@ -125,41 +80,11 @@ def _render_otp_verification_form():
         </script>
     """, height=50)
 
+    # The main verification action is handled within a form.
     with st.form("otp_verification_form"):
         otp_input = st.text_input("Enter 6-Digit OTP", max_chars=6)
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            submitted_otp = st.form_submit_button("Verify & Complete Sign-Up", type="primary")
-        with col2:
-            go_back = st.form_submit_button("Go Back & Edit Details")
-        with col3:
-            resend_otp = st.form_submit_button("Send OTP Again")
-
-        if go_back:
-            st.session_state.otp_sent_for_email = None
-            st.session_state.otp_expires_at = None
-            st.rerun()
-
-        if resend_otp:
-            try:
-                new_expiration_time = request_handler.regenerate_and_resend_otp(st.session_state.otp_sent_for_email)
-                if new_expiration_time:
-                    st.session_state.otp_expires_at = new_expiration_time
-                    st.success("A new OTP has been sent to your email.")
-                    st.rerun()
-                else:
-                    st.error("Could not find your sign-up request. Please go back and start over.")
-                    # Keep them on the OTP form but signal that OTP is invalid.
-                    # This avoids immediate return to the signup form.
-                    st.session_state.otp_invalid = True
-                    # We no longer clear the email, or the expiration since it might not be the cause
-                    st.rerun() 
-            except exceptions.EmailConfigurationError:
-                st.error("Sorry, the email service is currently unavailable. Please try again later.")
-            except exceptions.EmailSendingError:
-                st.error("Failed to send new OTP. Please check your email address and try again.")
-
+        submitted_otp = st.form_submit_button("Verify & Complete Sign-Up", type="primary", use_container_width=True)
+        
         if submitted_otp:
             # Strip whitespace from user input to prevent comparison errors
             clean_otp = otp_input.strip()
@@ -172,17 +97,38 @@ def _render_otp_verification_form():
                 st.session_state.otp_expires_at = None
                 st.rerun()
             else:
-                # Do not change the session state values here.
-                # The new values from initial signup or resend still hold.
-                # Instead, just show a regular error with the already improved message.
-                # Clear the invalid status before showing a new error
-                st.session_state.otp_invalid = False
                 st.error("The OTP you entered is incorrect or has expired. Please try again.")
 
-def _handle_signup_submission(form_data: dict):
-    """Validates and processes the signup form submission logic."""
-    error_messages = []
-
+    # Secondary actions (Go Back, Resend) are handled outside the form using regular buttons.
+    # This is a better practice than having multiple submit buttons in one form.
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Go Back & Edit Details", use_container_width=True):
+            st.session_state.otp_sent_for_email = None
+            st.session_state.otp_expires_at = None
+            st.rerun()
+    with col2:
+        if st.button("Send OTP Again", use_container_width=True):
+            try:
+                new_expiration_time = request_handler.regenerate_and_resend_otp(st.session_state.otp_sent_for_email)
+                if new_expiration_time:
+                    st.session_state.otp_expires_at = new_expiration_time
+                    st.success("A new OTP has been sent to your email.")
+                    st.rerun()
+                else:
+                    st.error("Could not find your sign-up request. Please go back and start over.")
+            except exceptions.EmailConfigurationError:
+                st.error("Sorry, the email service is currently unavailable. Please try again later.")
+            except exceptions.EmailSendingError:
+                st.error("Failed to send new OTP. Please check your email address and try again.")
+                
+def _validate_signup_form(form_data: dict) -> list[str]:
+    """
+    Performs all validation for the signup form, sends security alerts,
+    and returns a list of unique, sorted error messages.
+    """
+    errors = []
+    
     # Extract data for validation
     email = form_data.get("email")
     user_id = form_data.get("user_id")
@@ -190,55 +136,64 @@ def _handle_signup_submission(form_data: dict):
     password = form_data.get("password")
     confirm_password = form_data.get("confirm_password")
     selected_country_name = form_data.get("country")
-
-    # Uniqueness check now returns errors and notifications
+    
+    # 1. Uniqueness Checks (and security alerts)
     uniqueness_errors, notifications_to_send = validator.check_uniqueness(email, user_id, contact_number)
-    error_messages.extend(uniqueness_errors)
-
-    # If duplicates were found, send security alerts to original users
+    errors.extend(uniqueness_errors)
+    
     if notifications_to_send:
         for field, original_email in notifications_to_send.items():
             try:
                 request_handler.send_security_alert_email(original_email, field)
             except Exception as e:
-                print(f"Failed to send security alert for duplicate {field} to {original_email}: {e}")
-
-    # Field validation
+                logging.warning(f"Failed to send security alert for duplicate {field} to {original_email}: {e}")
+                
+    # 2. Required Field Checks
     required_fields = ["first_name", "last_name", "email", "contact_number", "organization_name", "user_id", "password", "confirm_password"]
     if not all(form_data.get(f) for f in required_fields):
-        error_messages.append("Please fill out all required fields marked with *.")
-    if form_data.get("gender") == "Select...": error_messages.append("Please select a gender.")
-    if selected_country_name == "Select...": error_messages.append("Please select a country.")
-    
+        errors.append("Please fill out all required fields marked with *.")
+    if form_data.get("gender") == "Select...":
+        errors.append("Please select a gender.")
+    if selected_country_name == "Select...":
+        errors.append("Please select a country.")
+        
+    # 3. Format-specific validations
     country_iso2 = location_handler.get_country_iso2(selected_country_name)
     if country_iso2 and not validator.validate_phone_number(contact_number, country_iso2):
-        error_messages.append("Please enter a valid contact number for the selected country.")
+        errors.append("Please enter a valid contact number for the selected country.")
     elif not country_iso2 and selected_country_name != "Select...":
-        error_messages.append(f"Could not find validation information for country: {selected_country_name}.")
+        errors.append(f"Could not find validation information for country: {selected_country_name}.")
+        
+    if not validator.validate_email(email):
+        errors.append("Invalid email format.")
+    if not validator.validate_password(password):
+        errors.append("Password must be at least 8 characters long and contain a number.")
+    if password != confirm_password:
+        errors.append("Passwords do not match.")
+        
+    return sorted(list(set(errors)))
 
-    if not validator.validate_email(email): error_messages.append("Invalid email format.")
-    if not validator.validate_password(password): error_messages.append("Password must be at least 8 characters long and contain a number.")
-    if password != confirm_password: error_messages.append("Passwords do not match.")
-
-    # Use a set to remove duplicate messages before displaying
-    unique_errors = sorted(list(set(error_messages)))
-    if unique_errors:
-        for msg in unique_errors:
+def _handle_signup_submission(form_data: dict):
+    """Orchestrates the validation and processing of the signup form."""
+    # 1. Validate all form data
+    error_messages = _validate_signup_form(form_data)
+    if error_messages:
+        for msg in error_messages:
             st.error(msg)
         return
 
-    # If validation passes, store data and initiate OTP process
+    # 2. If validation passes, proceed with OTP process
     # Exclude passwords from session state for security
     st.session_state.signup_data = {k: v for k, v in form_data.items() if k not in ['password', 'confirm_password']}
     
     # Prepare data for the request handler, adding password back just for the request
     request_data = st.session_state.signup_data.copy()
     request_data['date_of_birth'] = request_data.pop('dob').strftime("%Y-%m-%d")
-    request_data['password'] = password
+    request_data['password'] = form_data.get('password')
 
     try:
         expiration_time = request_handler.initiate_signup_and_send_otp(request_data)
-        st.session_state.otp_sent_for_email = email
+        st.session_state.otp_sent_for_email = form_data.get('email')
         st.session_state.otp_expires_at = expiration_time
         st.rerun()
     except exceptions.EmailConfigurationError:
@@ -264,25 +219,44 @@ def _render_signup_form():
 
         st.markdown("---")
         st.markdown("**Location & Contact**")
+        # Get the master list of countries once. State and City lists will be generated dynamically.
         countries = location_handler.get_countries()
-        states = location_handler.get_states(None)
-        cities = location_handler.get_cities(None)
 
+        # --- Country and State Selection ---
         col1, col2 = st.columns(2, gap="medium")
         with col1:
             country_index = (["Select..."] + countries).index(st.session_state.signup_data.get("country", "Select...")) if st.session_state.signup_data.get("country") in countries else 0
-            selected_country_name = st.selectbox("Country*", options=["Select..."] + countries, index=country_index)
+            selected_country_name = st.selectbox("Country*", options=["Select..."] + countries, index=country_index, key="country_select")
+
+        # Dynamically get the list of states based on the selected country.
+        states = location_handler.get_states(selected_country_name)
         with col2:
-            state_index = (["Select..."] + states).index(st.session_state.signup_data.get("state", "Select...")) if st.session_state.signup_data.get("state") in states else 0
-            selected_state_name = st.selectbox("State*", options=["Select..."] + states, index=state_index)
+            # If the selected country changes, the old state might no longer be valid.
+            # We check if the stored state is in the new list; if not, we reset it.
+            current_state = st.session_state.signup_data.get("state", "Select...")
+            if current_state not in states:
+                current_state = "Select..."
+            state_index = (["Select..."] + states).index(current_state)
+            selected_state_name = st.selectbox("State*", options=["Select..."] + states, index=state_index, key="state_select")
 
-        city_index = (["Select..."] + cities).index(st.session_state.signup_data.get("city", "Select...")) if st.session_state.signup_data.get("city") in cities else 0
-        selected_city_name = st.selectbox("City*", options=["Select..."] + cities, index=city_index)
+        # Dynamically get the list of cities based on the selected state.
+        cities = location_handler.get_cities(selected_state_name)
+        
+        # Similar to the state logic, we reset the city if the selected state changes.
+        current_city = st.session_state.signup_data.get("city", "Select...")
+        if current_city not in cities:
+            current_city = "Select..."
+        city_index = (["Select..."] + cities).index(current_city)
+        selected_city_name = st.selectbox("City*", options=["Select..."] + cities, index=city_index, key="city_select")
 
+        # --- Phone Code and Contact Number ---
         col1, col2 = st.columns([1, 2], gap="medium")
         with col1:
+            # The phone code is now automatically derived from the selected country.
+            # It is displayed in a disabled input field to prevent user modification.
             country_code_val = location_handler.get_country_code(selected_country_name)
-            country_code = st.text_input("Phone Code*", value=st.session_state.signup_data.get("country_code", country_code_val))
+            # We still assign it to a variable to pass it along with the form data.
+            country_code = st.text_input("Phone Code*", value=country_code_val, disabled=True)
         with col2:
             contact_number = st.text_input("Contact Number*", value=st.session_state.signup_data.get("contact_number", ""))
 
@@ -341,9 +315,25 @@ def _render_forgot_password_form():
             # Show same message for security to prevent user enumeration
             st.success("If an account with that email exists, a password reset link has been sent.")
 
+def _render_signup_confirmation_page():
+    """Displays the final confirmation message after a successful sign-up request."""
+    eta_time = st.session_state.approval_eta.strftime("%I:%M %p on %B %d, %Y")
+    st.success("Your request has been mailed for approval.")
+    st.info(f"Kindly wait for a response. Your request will be reviewed by approximately **{eta_time}**.")
+    st.balloons()
+    if st.button("← Back to Login", use_container_width=True):
+        # Reset all signup-related state to ensure a clean slate for the next user.
+        st.session_state.signup_complete = False
+        st.session_state.approval_eta = None
+        st.session_state.signup_data = {}
+        st.session_state.otp_sent_for_email = None
+        st.session_state.otp_expires_at = None
+        st.rerun()
+
 def render_authentication_page():
     """Displays the main authentication page with Sign In and Sign Up tabs."""
-    st.image(logo_path) # Width/height is now controlled by CSS
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH) # Width/height is now controlled by CSS
     st.markdown("## 👋 Welcome to **Dicideon**")
     st.markdown("##### _AI That Advises_")
 
@@ -355,18 +345,12 @@ def render_authentication_page():
         _render_forgot_password_form()
 
     with tab2:
+        # The logic is now routed to the appropriate rendering function based on session state.
         # 1. If sign-up is fully complete, show the final confirmation message.
-        if st.session_state.signup_complete:
-            eta_time = st.session_state.approval_eta.strftime("%I:%M %p on %B %d, %Y")
-            st.success("Your request has been mailed for approval.")
-            st.info(f"Kindly wait for a response. Your request will be reviewed by approximately **{eta_time}**.")
-            st.balloons()
-            if st.button("← Back to Login"):
-                st.session_state.signup_complete = False
-                st.session_state.approval_eta = None
-                st.rerun()
+        if st.session_state.get('signup_complete', False):
+            _render_signup_confirmation_page()
         # 2. If an OTP has been sent, show the verification form.
-        elif st.session_state.otp_sent_for_email and st.session_state.otp_expires_at:
+        elif st.session_state.get('otp_sent_for_email') and st.session_state.get('otp_expires_at'):
             _render_otp_verification_form()
         # 3. Otherwise, show the main sign-up form.
         else:
@@ -391,7 +375,7 @@ def _initialize_session_state():
 
 def main():
     database.init_db()  # Create database and tables if they don't exist
-    setup_logging()
+
     # --- LOAD DATA AND HANDLE ERRORS ---
     location_error = location_handler.load_location_data()
     if location_error:

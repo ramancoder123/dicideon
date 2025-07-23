@@ -39,7 +39,6 @@ def init_db():
                     country TEXT,
                     state TEXT,
                     city TEXT,
-                    contact_number TEXT,  -- Added contact number
                     organization_name TEXT,
                     gender TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -72,6 +71,7 @@ def init_db():
                     last_name TEXT NOT NULL,
                     country_code TEXT NOT NULL,
                     contact_number TEXT NOT NULL UNIQUE,
+                    date_of_birth DATE NOT NULL,
                     gender TEXT NOT NULL,
                     organization_name TEXT NOT NULL,
                     country TEXT NOT NULL,
